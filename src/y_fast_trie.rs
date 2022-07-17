@@ -29,7 +29,6 @@ impl AllocatedSize for YFastTrie {
 
 impl PredSucc for YFastTrie {
     fn build(values: &[u64]) -> Self {
-        // println!("building {:?}", values);
         let mut x = XFastTrie::new();
         let mut blocks = HashMap::new();
         let mut highest_block = 0;
@@ -57,7 +56,6 @@ impl PredSucc for YFastTrie {
                 self.prev_next_rep[&b].0
             })
         } else {
-            // println!("no block found????");
             self.blocks[&self.highest_block].range(..=x).next_back().copied()
         }
     }
@@ -109,7 +107,6 @@ impl XFastTrie {
         let mut right = None;
         let mut left = None;
         for (i, p) in ps.into_iter().enumerate() {
-            // println!("have prefix {p}");
             let bit = (value >> (63 - i)) & 1;
             if let Some(n) = self.map.get_mut(&p) {
                 // check which subtree to update
@@ -119,14 +116,12 @@ impl XFastTrie {
                     if n.left_max.is_some() {
                         left = n.left_max;
                     }
-                    // println!("picked up left {left:?}");
                 } else {
                     n.left_min = Some(n.left_min.unwrap_or(u64::MAX).min(value));
                     n.left_max = Some(n.left_max.unwrap_or(0).max(value));
                     if n.right_min.is_some() {
                         right = n.right_min;
                     }
-                    // println!("picked up right {right:?}");
                 }
                 prev_node = Some(p);
                 if i == 63 {
@@ -137,7 +132,6 @@ impl XFastTrie {
                             next: right
                         });
                         let l = &n.leaves[1];
-                        // println!("new leaf {l:?}");
                     } else {
                         n.leaves[1] = Some(TrieLeaf {
                             value,
@@ -145,11 +139,9 @@ impl XFastTrie {
                             prev: left
                         });
                         let l = &n.leaves[1];
-                        // println!("new leaf {l:?}");
                     }
                     let x = n.leaves[1].unwrap();
                         if let Some(p) = x.prev {
-                            // println!("updating entry for {p}");
                             let entry = self.map.get_mut(&(p | 1)).unwrap();
                             if entry.leaves[0].is_some() && entry.leaves[0].unwrap().value == p {
                                 entry.leaves[0].as_mut().unwrap().next = Some(value);
@@ -158,7 +150,6 @@ impl XFastTrie {
                             }
                         }
                         if let Some(p) = x.next {
-                            // println!("updating entry for {p}");
                             let entry = self.map.get_mut(&(p | 1)).unwrap();
                             if entry.leaves[0].is_some() && entry.leaves[0].unwrap().value == p {
                                 entry.leaves[0].as_mut().unwrap().prev = Some(value);
@@ -186,7 +177,6 @@ impl XFastTrie {
                             node.right_max = None;
                         }
                     }
-                    // println!("inserting node ? {node:?}");
                     self.map.insert(p, node);
                 } else {
                     let node = TrieNode {
@@ -201,30 +191,22 @@ impl XFastTrie {
                     if node.leaves[0].is_some() {
                         let x = node.leaves[0].unwrap();
                         if let Some(p) = x.prev {
-                            // println!("updating entry for {p}");
                             let entry = self.map.get_mut(&(p | 1)).unwrap();
                             if entry.leaves[0].is_some() && entry.leaves[0].unwrap().value == p {
                                 entry.leaves.get_mut(0).unwrap().as_mut().unwrap().next = Some(value);
-                                // println!("new {:?}", entry.leaves[0]);
                             } else {
                                 entry.leaves.get_mut(1).unwrap().as_mut().unwrap().next = Some(value);
-                                // println!("new {:?}", entry.leaves[1]);
                             }
                         }
                         if let Some(p) = x.next {
-                            // println!("updating entry for {p}");
                             let entry = self.map.get_mut(&(p | 1)).unwrap();
                             if entry.leaves[0].is_some() && entry.leaves[0].unwrap().value == p {
                                 entry.leaves.get_mut(0).unwrap().as_mut().unwrap().prev = Some(value);
-                                // println!("new {:?}", entry.leaves[0]);
                             } else {
                                 entry.leaves.get_mut(1).unwrap().as_mut().unwrap().prev = Some(value);
-                                // println!("new {:?}", entry.leaves[1]);
                             }
                         }
                     }
-
-                    // println!("inserting node {node:?}");
                     self.map.insert(p, node);
                 }
             }
@@ -240,10 +222,9 @@ impl XFastTrie {
             // check middle
             let x = ps[(lo + hi) / 2];
             let bit = value >> (63 - (lo + hi) / 2) & 1;
-            // println!("pred: checking node {x}");
+            // future work: align this implementation with the succ implementation..
             if self.map.get(&x).is_some() {
                 let x = self.map[&x];
-                // println!("pred: is node {x:?}");
                 if bit == 1 && x.right_min.is_some() {
                     max = x.right_max;
             } else if bit == 0 && x.left_min.is_some() {
@@ -259,7 +240,6 @@ impl XFastTrie {
         if node.is_none() {
             return None;
         }
-        // println!("final node {node:?} @ lo = {lo}");
         let node = node.unwrap();
         let v;
         if lo == 63 {
@@ -287,19 +267,14 @@ impl XFastTrie {
         while hi - lo > 1 {
             // check middle
             let x = ps[(lo + hi) / 2];
-            // let bit = (value >> (63 - (lo + hi) / 2)) & 1;
-            // println!("succ: checking node {x}, bit = {bit}, lvl = {}", (lo + hi) / 2);
             if self.map.get(&x).is_some() {
                 let x = self.map[&x];
-                // println!("succ: {x:?}");
 
                 let lowest_val = x.left_min.or(x.left_max).or(x.right_min).or(x.right_max).unwrap();
                 let highest_val = x.right_max.or(x.right_min).or(x.left_max).or(x.left_min).unwrap();
                 if lowest_val <= value && highest_val >= value {
-                    // println!("update lo");
                     lo = (lo + hi) / 2;
                 } else {
-                    // println!("update hi");
                     hi = (lo + hi) / 2;
                 }
             } else {
@@ -310,7 +285,6 @@ impl XFastTrie {
         if node.is_none() {
             return None;
         }
-        // println!("final node {node:?} @ lo = {lo}");
         let node = node.unwrap();
         let v;
         if lo == 63 {
@@ -333,7 +307,6 @@ impl XFastTrie {
             }
             v = None;
         }
-        // println!("stupid result {v:?}");
         return if v.unwrap_or(u64::MAX) >= value { v } else { None };
     }
 }

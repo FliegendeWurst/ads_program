@@ -84,7 +84,6 @@ impl RMQ for LinearLogRMQ {
                             m[i] = x+1;
                         }
                     } else {
-                        //println!("checking for {x} {l} {idx_a} {idx_b}");
                     if data[m[idx_a]] < data[m[idx_b]] {
                         m[i] = m[idx_a];
                     } else {
@@ -94,7 +93,6 @@ impl RMQ for LinearLogRMQ {
                 i += 1;
             }
         }
-        //println!("set values up to {i} should be {}", m.len());
         
         LinearLogRMQ { n, data, m }
     }
@@ -113,7 +111,6 @@ impl RMQ for LinearLogRMQ {
         }
         let idx_a = (l - 1) * self.n + a;
         let idx_b = (l - 1) * self.n + b + 1 - 2usize.pow(l as u32);
-        // println!("query {a} {b} {} {l} {idx_a} {idx_b} {}", b + 1 - 2usize.pow(l as u32), self.m.len());
         if self.data[self.m[idx_a]] < self.data[self.m[idx_b]] {
             self.m[idx_a]
         } else {
@@ -159,7 +156,6 @@ impl RMQ for LinearRMQ {
                     min_idx = i;
                 }
             }
-            //panic!("building using {:?}", block.len());
             let cart_tree = CartesianTree::build(block);
             let (bits, _) = cart_tree.bits();
             if !cartesian_answers.contains_key(&bits) {
@@ -169,7 +165,6 @@ impl RMQ for LinearRMQ {
             }
             cartesian_trees.push(bits);
             positions.push(s * b.len() + min_idx);
-            //println!("position {:?}", positions.last().unwrap());
             b.push(min_val);
         }
         let inner = LinearLogRMQ::build(b);
@@ -178,7 +173,6 @@ impl RMQ for LinearRMQ {
     }
 
     fn query(&self, a: usize, b: usize) -> usize {
-        // println!("stupid query {a} {b} {} {}", self.data.len(), self.s);
         // first, query across blocks:
         // limit indices to block boundaries
         let next_a = next_multiple_of(a, self.s);
@@ -207,7 +201,6 @@ impl RMQ for LinearRMQ {
             let min_idx2 = (idxb + 1) * self.s + self.cartesian_answers[&self.cartesian_trees[idxb + 1]][s * self.s + e - (s * (s + 1)) / 2];
             if self.data[min_idx2] < min_val {
                 min_val = self.data[min_idx2];
-                //println!("b set min to {min_idx2}");
                 min_idx = min_idx2;
             }
         }
@@ -218,7 +211,6 @@ impl RMQ for LinearRMQ {
             let min_idx2 = (idxa - 1) * self.s + self.cartesian_answers[&self.cartesian_trees[idxa - 1]][s * self.s + e - (s * (s + 1)) / 2];
             if self.data[min_idx2] < min_val {
                 min_val = self.data[min_idx2];
-                // println!("a set min to {min_idx2}");
                 min_idx = min_idx2;
             }
         }
@@ -228,9 +220,8 @@ impl RMQ for LinearRMQ {
 
     fn bits(&self) -> usize {
         self.inner.bits() + 64
-            + self.cartesian_answers.allocated_size() + self.cartesian_trees.allocated_size()
-            + self.data.allocated_size() + self.positions.allocated_size()
-        // TODO
+            + 8 * (self.cartesian_answers.allocated_size() + self.cartesian_trees.allocated_size()
+            + self.data.allocated_size() + self.positions.allocated_size())
     }
 }
 
@@ -328,7 +319,6 @@ impl CartesianTree {
                         let prev_right = nodes[rightmost_node].right;
                         nodes[rightmost_node].right = Some(new_node_idx);
                         let new_node = TreeNode { parent: Some(rightmost_node), left: prev_right, right: None, min: i };
-                        //println!("new node {new_node:?}");
                         nodes.push(new_node);
                         rightmost_node = new_node_idx;
                         break;
