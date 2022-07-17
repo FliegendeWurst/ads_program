@@ -1,8 +1,8 @@
-use std::{env, fs::{self, File}, io::{BufWriter, Write}, time::Instant};
+use std::{env, fs::{self, File}, io::{BufWriter, Write}, time::Instant, collections::BTreeSet};
 
 use rmq::*;
 
-use crate::{y_fast_trie::YFastTrie, allocated_size::AllocatedSize};
+use crate::{y_fast_trie::{YFastTrie, PredSucc}, allocated_size::AllocatedSize};
 
 mod allocated_size;
 mod rmq;
@@ -34,7 +34,6 @@ fn main() {
             input_data.push(line.parse().unwrap());
         }
     }
-    println!("input read!");
     let mut output_file = BufWriter::new(File::create(output).unwrap());
 
     let start_time = Instant::now();
@@ -47,10 +46,23 @@ fn main() {
             write!(output_file, "{}\n", result).unwrap();
         }
     } else if mode == "pd" {
-        let pd = YFastTrie::build(&input_data[1..1+input_data[0] as usize]);
-        space = pd.allocated_size();
+        let values = &input_data[1..1+input_data[0] as usize];
+        let pd = YFastTrie::build(values);
+        //let mut verify: BTreeSet<u64> = BTreeSet::new();
+        //verify.extend(values);
+        space = 8 * pd.allocated_size();
         for &query in &input_data[1+input_data[0] as usize..] {
             let result = pd.pred(query);
+
+            // check result (optional)
+            /*
+            let result2 = verify.range(..=query).next_back().copied();
+            if result != result2 {
+                println!("{query}  {result:?} {result2:?}");
+                panic!();
+            }
+            */
+
             if let Some(x) = result {
                 write!(output_file, "{}\n", x).unwrap();
             } else {

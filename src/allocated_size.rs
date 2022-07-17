@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::{HashMap, BTreeSet}, hash::Hash};
 
 pub trait AllocatedSize {
     fn allocated_size(&self) -> usize;
@@ -20,6 +20,7 @@ imp_alloc!(usize, |_| 8);
 imp_alloc!(Vec<u64>, |s: &Vec<u64>| s.capacity() * 8 + 24);
 imp_alloc!(Vec<usize>, |s: &Vec<usize>| s.capacity() * 8 + 24);
 imp_alloc!(Vec<Vec<u64>>, |s: &Vec<Vec<u64>>| s.iter().map(|x| x.allocated_size()).sum::<usize>() + 24);
+imp_alloc!(BTreeSet<u64>, |s: &BTreeSet<u64>| s.len() * 8);
 
 impl<K, V> AllocatedSize for HashMap<K, V> 
 where K: AllocatedSize + Eq + Hash, V: AllocatedSize {

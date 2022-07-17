@@ -36,7 +36,6 @@ impl RMQ for NaiveRMQ {
                     min_idx = b;
                     min_val = data[b];
                 }
-                //println!("{a} {b} {i}   {min_idx} {min_val}   {}", results.len());
                 results[i] = min_idx;
                 i += 1;
             }
@@ -66,7 +65,6 @@ impl RMQ for LinearLogRMQ {
     fn build(data: Vec<u64>) -> Self {
         let n = data.len();
         let logn = n.ilog2() as usize;
-        println!("maximum l {logn}");
 
         let mut m = vec![0; n * logn];
         let mut i = 0;
@@ -115,7 +113,7 @@ impl RMQ for LinearLogRMQ {
         }
         let idx_a = (l - 1) * self.n + a;
         let idx_b = (l - 1) * self.n + b + 1 - 2usize.pow(l as u32);
-        //println!("query {a} {b} {} {l} {idx_a} {idx_b} {}", b + 1 - 2usize.pow(l as u32), self.m.len());
+        // println!("query {a} {b} {} {l} {idx_a} {idx_b} {}", b + 1 - 2usize.pow(l as u32), self.m.len());
         if self.data[self.m[idx_a]] < self.data[self.m[idx_b]] {
             self.m[idx_a]
         } else {
@@ -180,7 +178,7 @@ impl RMQ for LinearRMQ {
     }
 
     fn query(&self, a: usize, b: usize) -> usize {
-        //println!("stupid query {a} {b} {} {}", self.data.len(), self.s);
+        // println!("stupid query {a} {b} {} {}", self.data.len(), self.s);
         // first, query across blocks:
         // limit indices to block boundaries
         let next_a = next_multiple_of(a, self.s);
