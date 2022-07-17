@@ -1,8 +1,16 @@
-use std::{env, fs::{self, File}, io::{BufWriter, Write}, time::Instant, collections::BTreeSet};
+use std::{
+    env,
+    fs::{self, File},
+    io::{BufWriter, Write},
+    time::Instant,
+};
 
 use rmq::*;
 
-use crate::{y_fast_trie::{YFastTrie, PredSucc}, allocated_size::AllocatedSize};
+use crate::{
+    allocated_size::AllocatedSize,
+    y_fast_trie::{PredSucc, YFastTrie},
+};
 
 mod allocated_size;
 mod rmq;
@@ -46,12 +54,12 @@ fn main() {
             write!(output_file, "{}\n", result).unwrap();
         }
     } else if mode == "pd" {
-        let values = &input_data[1..1+input_data[0] as usize];
+        let values = &input_data[1..1 + input_data[0] as usize];
         let pd = YFastTrie::build(values);
         //let mut verify: BTreeSet<u64> = BTreeSet::new();
         //verify.extend(values);
         space = 8 * pd.allocated_size();
-        for &query in &input_data[1+input_data[0] as usize..] {
+        for &query in &input_data[1 + input_data[0] as usize..] {
             let result = pd.pred(query);
 
             // check result (optional)
@@ -73,5 +81,9 @@ fn main() {
         panic!("invalid mode");
     }
     let end_time = Instant::now();
-    println!("RESULT algo={} name=arne_keller time={} space={space}", mode, end_time.duration_since(start_time).as_millis());
+    println!(
+        "RESULT algo={} name=arne_keller time={} space={space}",
+        mode,
+        end_time.duration_since(start_time).as_millis()
+    );
 }

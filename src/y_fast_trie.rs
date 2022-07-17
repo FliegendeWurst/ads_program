@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, BTreeSet};
+use std::collections::{BTreeSet, HashMap};
 
 use crate::allocated_size::AllocatedSize;
 
@@ -18,12 +18,15 @@ pub struct YFastTrie {
     x: XFastTrie,
     blocks: HashMap<u64, BTreeSet<u64>>,
     prev_next_rep: HashMap<u64, (Option<u64>, Option<u64>)>,
-    highest_block: u64
+    highest_block: u64,
 }
 
 impl AllocatedSize for YFastTrie {
     fn allocated_size(&self) -> usize {
-        self.x.allocated_size() + self.blocks.allocated_size() + self.prev_next_rep.capacity() * (24) + 8
+        self.x.allocated_size()
+            + self.blocks.allocated_size()
+            + self.prev_next_rep.capacity() * (24)
+            + 8
     }
 }
 
@@ -41,22 +44,36 @@ impl PredSucc for YFastTrie {
             highest_block = highest_block.max(rep);
         }
         for i in 0..xs.len() {
-            let prev = if i > 0 { Some(xs[i-1]) } else { None };
-            let next = if i < xs.len() - 1 { Some(xs[i+1]) } else { None };
+            let prev = if i > 0 { Some(xs[i - 1]) } else { None };
+            let next = if i < xs.len() - 1 {
+                Some(xs[i + 1])
+            } else {
+                None
+            };
             prev_rep.insert(xs[i], (prev, next));
         }
         xs.into_iter().for_each(|y| x.add(y));
-        YFastTrie { x, blocks, highest_block, prev_next_rep: prev_rep }
+        YFastTrie {
+            x,
+            blocks,
+            highest_block,
+            prev_next_rep: prev_rep,
+        }
     }
 
     fn pred(&self, x: u64) -> Option<u64> {
         let block = self.x.succ(x);
         if let Some(b) = block {
-            self.blocks[&b].range(..=x).next_back().copied().or_else(|| {
-                self.prev_next_rep[&b].0
-            })
+            self.blocks[&b]
+                .range(..=x)
+                .next_back()
+                .copied()
+                .or_else(|| self.prev_next_rep[&b].0)
         } else {
-            self.blocks[&self.highest_block].range(..=x).next_back().copied()
+            self.blocks[&self.highest_block]
+                .range(..=x)
+                .next_back()
+                .copied()
         }
     }
 
@@ -70,8 +87,11 @@ impl PredSucc for YFastTrie {
     }
 }
 
+/// Predecessor data structure.
+///
+/// Space: O(w n). Query time: O(log w).
 pub struct XFastTrie {
-    map: HashMap<u64, TrieNode>
+    map: HashMap<u64, TrieNode>,
 }
 
 impl AllocatedSize for XFastTrie {
@@ -80,29 +100,36 @@ impl AllocatedSize for XFastTrie {
     }
 }
 
+/// Node in the x-Fast-Trie, representing a bit prefix.
+/// Stores the minimum / maximum in the left / right subtree.
+/// Up to two leaves may be attached.
 #[derive(Clone, Copy, Debug)]
 struct TrieNode {
     left_min: Option<u64>,
     left_max: Option<u64>,
     right_min: Option<u64>,
     right_max: Option<u64>,
-    leaves: [Option<TrieLeaf>; 2]
+    leaves: [Option<TrieLeaf>; 2],
 }
 
+/// Leaf of the x-Fast-Trie, representing a stored value.
+/// Maintains the value of the previous and next value in the sorted data.
 #[derive(Clone, Copy, Debug)]
 struct TrieLeaf {
     value: u64,
     prev: Option<u64>,
-    next: Option<u64>
+    next: Option<u64>,
 }
 
 impl XFastTrie {
     pub fn new() -> Self {
-        XFastTrie { map: HashMap::new() }
+        XFastTrie {
+            map: HashMap::new(),
+        }
     }
 
     pub fn add(&mut self, value: u64) {
-        let mut ps = bit_prefixes(value);
+        let ps = bit_prefixes(value);
         let mut prev_node = None;
         let mut right = None;
         let mut left = None;
@@ -125,66 +152,81 @@ impl XFastTrie {
                 }
                 prev_node = Some(p);
                 if i == 63 {
+                    // final level: update leaf node
                     if bit == 1 {
                         n.leaves[1] = Some(TrieLeaf {
                             value,
                             prev: Some(n.leaves[0].unwrap().value),
-                            next: right
+                            next: right,
                         });
-                        let l = &n.leaves[1];
                     } else {
                         n.leaves[1] = Some(TrieLeaf {
                             value,
                             next: Some(n.leaves[0].unwrap().value),
-                            prev: left
+                            prev: left,
                         });
-                        let l = &n.leaves[1];
                     }
+                    // update prev/next pointers
                     let x = n.leaves[1].unwrap();
-                        if let Some(p) = x.prev {
-                            let entry = self.map.get_mut(&(p | 1)).unwrap();
-                            if entry.leaves[0].is_some() && entry.leaves[0].unwrap().value == p {
-                                entry.leaves[0].as_mut().unwrap().next = Some(value);
-                            } else {
-                                entry.leaves[1].as_mut().unwrap().next = Some(value);
-                            }
+                    if let Some(p) = x.prev {
+                        let entry = self.map.get_mut(&(p | 1)).unwrap();
+                        if entry.leaves[0].is_some() && entry.leaves[0].unwrap().value == p {
+                            entry.leaves[0].as_mut().unwrap().next = Some(value);
+                        } else {
+                            entry.leaves[1].as_mut().unwrap().next = Some(value);
                         }
-                        if let Some(p) = x.next {
-                            let entry = self.map.get_mut(&(p | 1)).unwrap();
-                            if entry.leaves[0].is_some() && entry.leaves[0].unwrap().value == p {
-                                entry.leaves[0].as_mut().unwrap().prev = Some(value);
-                            } else {
-                                entry.leaves[1].as_mut().unwrap().prev = Some(value);
-                            }
+                    }
+                    if let Some(p) = x.next {
+                        let entry = self.map.get_mut(&(p | 1)).unwrap();
+                        if entry.leaves[0].is_some() && entry.leaves[0].unwrap().value == p {
+                            entry.leaves[0].as_mut().unwrap().prev = Some(value);
+                        } else {
+                            entry.leaves[1].as_mut().unwrap().prev = Some(value);
                         }
+                    }
                 }
             } else {
+                // create new node
                 if prev_node.is_none() {
-                    // first entry
-                    let mut node = TrieNode {
-                        left_min: if bit == 0 { Some(value) } else { None },
-                        left_max: if bit == 0 { Some(value) } else { None },
-                        right_min: if bit == 1 { Some(value) } else { None },
-                        right_max: if bit == 1 { Some(value) } else { None },
-                        leaves: if i == 63 { [Some(TrieLeaf { value, prev: None, next: None }), None] } else { [None; 2] }
-                    };
-                    if i == 63 {
-                        if bit == 1 {
-                            node.left_min = None;
-                            node.left_max = None;
-                        } else {
-                            node.right_min = None;
-                            node.right_max = None;
-                        }
-                    }
-                    self.map.insert(p, node);
-                } else {
+                    // root node
                     let node = TrieNode {
                         left_min: if bit == 0 { Some(value) } else { None },
                         left_max: if bit == 0 { Some(value) } else { None },
                         right_min: if bit == 1 { Some(value) } else { None },
                         right_max: if bit == 1 { Some(value) } else { None },
-                        leaves: if i == 63 { [Some(TrieLeaf { value, prev: left, next: right }), None] } else { [None; 2] }
+                        leaves: if i == 63 {
+                            [
+                                Some(TrieLeaf {
+                                    value,
+                                    prev: None,
+                                    next: None,
+                                }),
+                                None,
+                            ]
+                        } else {
+                            [None; 2]
+                        },
+                    };
+                    self.map.insert(p, node);
+                } else {
+                    // new node as child of existing node
+                    let node = TrieNode {
+                        left_min: if bit == 0 { Some(value) } else { None },
+                        left_max: if bit == 0 { Some(value) } else { None },
+                        right_min: if bit == 1 { Some(value) } else { None },
+                        right_max: if bit == 1 { Some(value) } else { None },
+                        leaves: if i == 63 {
+                            [
+                                Some(TrieLeaf {
+                                    value,
+                                    prev: left,
+                                    next: right,
+                                }),
+                                None,
+                            ]
+                        } else {
+                            [None; 2]
+                        },
                     };
 
                     // update prev/next pointers
@@ -193,17 +235,21 @@ impl XFastTrie {
                         if let Some(p) = x.prev {
                             let entry = self.map.get_mut(&(p | 1)).unwrap();
                             if entry.leaves[0].is_some() && entry.leaves[0].unwrap().value == p {
-                                entry.leaves.get_mut(0).unwrap().as_mut().unwrap().next = Some(value);
+                                entry.leaves.get_mut(0).unwrap().as_mut().unwrap().next =
+                                    Some(value);
                             } else {
-                                entry.leaves.get_mut(1).unwrap().as_mut().unwrap().next = Some(value);
+                                entry.leaves.get_mut(1).unwrap().as_mut().unwrap().next =
+                                    Some(value);
                             }
                         }
                         if let Some(p) = x.next {
                             let entry = self.map.get_mut(&(p | 1)).unwrap();
                             if entry.leaves[0].is_some() && entry.leaves[0].unwrap().value == p {
-                                entry.leaves.get_mut(0).unwrap().as_mut().unwrap().prev = Some(value);
+                                entry.leaves.get_mut(0).unwrap().as_mut().unwrap().prev =
+                                    Some(value);
                             } else {
-                                entry.leaves.get_mut(1).unwrap().as_mut().unwrap().prev = Some(value);
+                                entry.leaves.get_mut(1).unwrap().as_mut().unwrap().prev =
+                                    Some(value);
                             }
                         }
                     }
@@ -213,30 +259,46 @@ impl XFastTrie {
         }
     }
 
+    #[allow(unused)]
     pub fn pred(&self, value: u64) -> Option<u64> {
-        let mut ps = bit_prefixes(value);
+        // see succ for comments, this method works the same way
+        let calc_prefix = |shift: u32| {
+            let shift = 64 - shift;
+            (value.checked_shr(shift).unwrap_or(0))
+                .checked_shl(shift)
+                .unwrap_or(0)
+                | (1 << (shift - 1))
+        };
         let mut lo = 0;
         let mut hi = 64;
-        let mut max = None;
         while hi - lo > 1 {
             // check middle
-            let x = ps[(lo + hi) / 2];
-            let bit = value >> (63 - (lo + hi) / 2) & 1;
-            // future work: align this implementation with the succ implementation..
+            let x = calc_prefix((lo + hi) / 2);
             if self.map.get(&x).is_some() {
                 let x = self.map[&x];
-                if bit == 1 && x.right_min.is_some() {
-                    max = x.right_max;
-            } else if bit == 0 && x.left_min.is_some() {
-                max = x.left_max;
-            }
 
-                lo = (lo + hi) / 2;
+                let lowest_val = x
+                    .left_min
+                    .or(x.left_max)
+                    .or(x.right_min)
+                    .or(x.right_max)
+                    .unwrap();
+                let highest_val = x
+                    .right_max
+                    .or(x.right_min)
+                    .or(x.left_max)
+                    .or(x.left_min)
+                    .unwrap();
+                if lowest_val <= value && highest_val >= value {
+                    lo = (lo + hi) / 2;
+                } else {
+                    hi = (lo + hi) / 2;
+                }
             } else {
-                hi = (lo + hi) / 2 - 1;
+                hi = (lo + hi) / 2;
             }
         }
-        let node = self.map.get(&ps[lo]);
+        let node = self.map.get(&calc_prefix(lo));
         if node.is_none() {
             return None;
         }
@@ -247,37 +309,60 @@ impl XFastTrie {
             if node.leaves[0].is_some() && node.leaves[0].unwrap().value == value {
                 v = node.leaves[0].unwrap().prev;
             } else {
-                v = node.leaves[1].map(|x| x.prev).unwrap_or(max);
+                v = node.leaves[1].map(|x| x.prev).flatten();
             }
         } else {
-            if (value >> (63 - lo)) & 1 == 1 {
-                v = node.right_min.or(node.left_max);
-            } else {
-                v = node.left_min.or(node.right_max);
+            let mut values = vec![];
+            values.extend(node.left_min);
+            values.extend(node.left_max);
+            values.extend(node.right_min);
+            values.extend(node.right_max);
+            for val in values.into_iter().rev() {
+                if val <= value {
+                    return Some(val);
+                }
             }
+            v = None
         }
-        return if v.unwrap_or(u64::MAX) <= value { v } else { None };
+        return if v.unwrap_or(u64::MAX) <= value {
+            v
+        } else {
+            None
+        };
     }
 
     pub fn succ(&self, value: u64) -> Option<u64> {
         let ps = bit_prefixes(value);
         let mut lo = 0;
         let mut hi = 64;
-        let min = None;
         while hi - lo > 1 {
             // check middle
             let x = ps[(lo + hi) / 2];
+            // node is present:
             if self.map.get(&x).is_some() {
                 let x = self.map[&x];
 
-                let lowest_val = x.left_min.or(x.left_max).or(x.right_min).or(x.right_max).unwrap();
-                let highest_val = x.right_max.or(x.right_min).or(x.left_max).or(x.left_min).unwrap();
+                // if the interval represented by the node contains our value: keep descending the tree
+                let lowest_val = x
+                    .left_min
+                    .or(x.left_max)
+                    .or(x.right_min)
+                    .or(x.right_max)
+                    .unwrap();
+                let highest_val = x
+                    .right_max
+                    .or(x.right_min)
+                    .or(x.left_max)
+                    .or(x.left_min)
+                    .unwrap();
                 if lowest_val <= value && highest_val >= value {
                     lo = (lo + hi) / 2;
                 } else {
+                    // otherwise: stay in the first half of the tree
                     hi = (lo + hi) / 2;
                 }
             } else {
+                // node not present: stay in first half of tree
                 hi = (lo + hi) / 2;
             }
         }
@@ -292,7 +377,7 @@ impl XFastTrie {
             if node.leaves[0].is_some() && node.leaves[0].unwrap().value == value {
                 v = node.leaves[0].unwrap().next;
             } else {
-                v = node.leaves[1].map(|x| x.next).unwrap_or(min);
+                v = node.leaves[1].map(|x| x.next).flatten();
             }
         } else {
             let mut values = vec![];
@@ -307,7 +392,11 @@ impl XFastTrie {
             }
             v = None;
         }
-        return if v.unwrap_or(u64::MAX) >= value { v } else { None };
+        if v.unwrap_or(u64::MAX) >= value {
+            v
+        } else {
+            None
+        }
     }
 }
 
@@ -318,7 +407,15 @@ impl XFastTrie {
 /// - [bit 1,..,62]10
 /// - [bit 1,..,63]1
 fn bit_prefixes(x: u64) -> Vec<u64> {
-    (1..65).rev().map(move |shift| (x.checked_shr(shift).unwrap_or(0)).checked_shl(shift).unwrap_or(0) | (1 << (shift - 1))).collect()
+    (1..65)
+        .rev()
+        .map(move |shift| {
+            (x.checked_shr(shift).unwrap_or(0))
+                .checked_shl(shift)
+                .unwrap_or(0)
+                | (1 << (shift - 1))
+        })
+        .collect()
 }
 
 #[test]
@@ -374,6 +471,6 @@ fn x_fast_trie2() {
     m.add(1);
     m.add(4);
     m.add(7);
-    
+
     assert_eq!(Some(1), m.pred(2));
 }
