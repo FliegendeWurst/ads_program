@@ -2,6 +2,9 @@ use std::{env, fs::{self, File}, io::{BufWriter, Write}, time::Instant};
 
 use rmq::*;
 
+use crate::{y_fast_trie::YFastTrie, allocated_size::AllocatedSize};
+
+mod allocated_size;
 mod rmq;
 mod y_fast_trie;
 
@@ -31,6 +34,7 @@ fn main() {
             input_data.push(line.parse().unwrap());
         }
     }
+    println!("input read!");
     let mut output_file = BufWriter::new(File::create(output).unwrap());
 
     let start_time = Instant::now();
@@ -43,7 +47,16 @@ fn main() {
             write!(output_file, "{}\n", result).unwrap();
         }
     } else if mode == "pd" {
-        space = 5;
+        let pd = YFastTrie::build(&input_data[1..1+input_data[0] as usize]);
+        space = pd.allocated_size();
+        for &query in &input_data[1+input_data[0] as usize..] {
+            let result = pd.pred(query);
+            if let Some(x) = result {
+                write!(output_file, "{}\n", x).unwrap();
+            } else {
+                write!(output_file, "{}\n", u64::MAX).unwrap();
+            }
+        }
     } else {
         panic!("invalid mode");
     }

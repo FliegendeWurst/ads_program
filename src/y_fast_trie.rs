@@ -1,12 +1,21 @@
 use std::collections::{HashMap, HashSet, BTreeSet};
 
+use crate::allocated_size::AllocatedSize;
+
 pub struct YFastTrie {
     x: XFastTrie,
     blocks: HashMap<u64, BTreeSet<u64>>
 }
 
+impl AllocatedSize for YFastTrie {
+    fn allocated_size(&self) -> usize {
+        42
+    }
+}
+
 impl YFastTrie {
     pub fn build(values: &[u64]) -> Self {
+        println!("building {:?}", values);
         let mut x = XFastTrie::new();
         let mut blocks = HashMap::new();
         for block in values.chunks(64) {
@@ -18,8 +27,10 @@ impl YFastTrie {
     }
 
     pub fn pred(&self, x: u64) -> Option<u64> {
+        println!("query on {x}");
         let block = self.x.pred(x);
         if let Some(b) = block {
+            println!("found block {b}");
             self.blocks[&b].range(..=x).next_back().copied()
         } else {
             None
@@ -201,6 +212,7 @@ impl XFastTrie {
             println!("pred: checking node {x}");
             if self.map.get(&x).is_some() {
                 let x = self.map[&x];
+                println!("pred: is node {x:?}");
                 if bit == 1 && x.right_min.is_some() {
                     max = x.right_max;
             } else if bit == 0 && x.left_min.is_some() {
